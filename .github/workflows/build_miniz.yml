@@ -1,0 +1,74 @@
+name: Manual Build for Miniz
+
+on:
+  workflow_dispatch: # Nur manuell ausführbar
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        platform: [linux, macos, windows]
+        arch: [x86_64, arm64]
+    runs-on: ${{ matrix.platform }}-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Setup Build Environment (Linux)
+        if: ${{ matrix.platform == 'linux' }}
+        run: |
+          sudo apt-get update
+          if [ "${{ matrix.arch }}" == "arm64" ]; then
+            sudo apt-get install -y gcc-aarch64-linux-gnu
+          else
+            sudo apt-get install -y gcc
+          fi
+
+      - name: Setup Build Environment (macOS)
+        if: ${{ matrix.platform == 'macos' }}
+        run: |
+          if [ "${{ matrix.arch }}" == "arm64" ]; then
+            echo "Setting up for Apple Silicon (ARM64)"
+          else
+            echo "Setting up for Intel (x86_64)"
+          fi
+
+      - name: Setup Build Environment (Windows)
+        if: ${{ matrix.platform == 'windows' }}
+        run: |
+          choco install mingw
+          if [ "${{ matrix.arch }}" == "arm64" ]; then
+            echo "Using ARM64 MinGW cross-compiler"
+          else
+            echo "Using x86_64 MinGW compiler"
+          fi
+
+      - name: Build Miniz
+        run: |
+          mkdir -p build/${{ matrix.platform }}_${{ matrix.arch }}
+          if [ "${{ matrix.platform }}" == "linux" ]; then
+            if [ "${{ matrix.arch }}" == "arm64" ]; then
+              aarch64-linux-gnu-gcc -shared -o build/${{ matrix.platform }}_${{ matrix.arch }}/miniz.so miniz.c miniz_tdef.c miniz_tinfl.c -DBUILD_DLL
+            else
+              gcc -shared -o build/${{ matrix.platform }}_${{ matrix.arch }}/miniz.so miniz.c miniz_tdef.c miniz_tinfl.c -DBUILD_DLL
+            fi
+          elif [ "${{ matrix.platform }}" == "macos" ]; then
+            if [ "${{ matrix.arch }}" == "arm64" ]; then
+              clang -target arm64-apple-macos -shared -o build/${{ matrix.platform }}_${{ matrix.arch }}/miniz.dylib miniz.c miniz_tdef.c miniz_tinfl.c -DBUILD_DLL
+            else
+              clang -target x86_64-apple-macos -shared -o build/${{ matrix.platform }}_${{ matrix.arch }}/miniz.dylib miniz.c miniz_tdef.c miniz_tinfl.c -DBUILD_DLL
+            fi
+          elif [ "${{ matrix.platform }}" == "windows" ]; then
+            if [ "${{ matrix.arch }}" == "arm64" ]; then
+              aarch64-w64-mingw32-gcc -shared -o build/${{ matrix.platform }}_${{ matrix.arch }}/miniz.dll miniz.c miniz_tdef.c miniz_tinfl.c -DBUILD_DLL
+            else
+              x86_64-w64-mingw32-gcc -shared -o build/${{ matrix.platform }}_${{ matrix.arch }}/miniz.dll miniz.c miniz_tdef.c miniz_tinfl.c -DBUILD_DLL
+            fi
+          fi
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: Miniz-Build-${{ matrix.platform }}-${{ matrix.arch }}
+          path: build/${{ matrix.platform }}_${{ matrix.arch }}
