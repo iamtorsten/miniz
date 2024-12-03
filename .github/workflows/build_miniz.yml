@@ -37,7 +37,19 @@ jobs:
           echo "Setting up environment for Windows ${{ matrix.arch }}"
           choco install mingw
 
-      - name: Build Miniz
+      - name: Build Miniz (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          Write-Host "Starting build for Windows ${{ matrix.arch }}"
+          mkdir -Force -Path build\windows_${{ matrix.arch }}
+          if ($env:matrix_arch -eq "arm64") {
+            & aarch64-w64-mingw32-gcc -shared -o build\windows_${{ matrix.arch }}\miniz.dll miniz.c miniz_tdef.c miniz_tinfl.c -DBUILD_DLL
+          } else {
+            & x86_64-w64-mingw32-gcc -shared -o build\windows_${{ matrix.arch }}\miniz.dll miniz.c miniz_tdef.c miniz_tinfl.c -DBUILD_DLL
+          }
+
+      - name: Build Miniz (Linux and macOS)
+        if: runner.os != 'Windows'
         run: |
           echo "Starting build for ${{ matrix.platform }} ${{ matrix.arch }}"
           mkdir -p build/${{ matrix.platform }}_${{ matrix.arch }}
@@ -53,12 +65,6 @@ jobs:
             else
               clang -target x86_64-apple-macos -shared -o build/${{ matrix.platform }}_${{ matrix.arch }}/miniz.dylib miniz.c miniz_tdef.c miniz_tinfl.c -DBUILD_DLL
             fi
-          elif [[ "${{ matrix.platform }}" == "windows" ]]; then
-            if [[ "${{ matrix.arch }}" == "arm64" ]]; then
-              aarch64-w64-mingw32-gcc -shared -o build/${{ matrix.platform }}_${{ matrix.arch }}/miniz.dll miniz.c miniz_tdef.c miniz_tinfl.c -DBUILD_DLL
-            else
-              x86_64-w64-mingw32-gcc -shared -o build/${{ matrix.platform }}_${{ matrix.arch }}/miniz.dll miniz.c miniz_tdef.c miniz_tinfl.c -DBUILD_DLL
-            fi
           fi
 
       - name: List Build Output
@@ -71,24 +77,3 @@ jobs:
         with:
           name: Miniz-Build-${{ matrix.platform }}-${{ matrix.arch }}
           path: build/${{ matrix.platform }}_${{ matrix.arch }}
-
-  release:
-    needs: build
-    runs-on: ubuntu-22.04
-
-    steps:
-      - name: Download Build Artifacts
-        uses: actions/download-artifact@v3
-        with:
-          path: release
-
-      - name: Create GitHub Release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: miniz-build-${{ github.run_number }}
-          release_name: Miniz Build Release ${{ github.run_number }}
-          draft: false
-          prerelease: false
-          files: release/**/*
