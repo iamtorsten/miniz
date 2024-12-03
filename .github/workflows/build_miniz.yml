@@ -1,7 +1,7 @@
 name: Manual Build for Miniz
 
 on:
-  workflow_dispatch:  # Nur manuell ausführbar
+  workflow_dispatch: # Nur manuell ausführbar
 
 jobs:
   build:
@@ -17,6 +17,7 @@ jobs:
 
       - name: Setup Build Environment
         run: |
+          echo "Setting up environment for ${{ matrix.platform }} ${{ matrix.arch }}"
           if [[ "${{ matrix.platform }}" == "linux" ]]; then
             sudo apt-get update
             if [[ "${{ matrix.arch }}" == "arm64" ]]; then
@@ -25,14 +26,10 @@ jobs:
               sudo apt-get install -y gcc
             fi
           elif [[ "${{ matrix.platform }}" == "macos" ]]; then
-            echo "Setting up for macOS"
+            echo "macOS environment setup complete."
           elif [[ "${{ matrix.platform }}" == "windows" ]]; then
             choco install mingw
-            if [[ "${{ matrix.arch }}" == "arm64" ]]; then
-              echo "Using ARM64 MinGW cross-compiler"
-            else
-              echo "Using x86_64 MinGW compiler"
-            fi
+          fi
 
       - name: Build Miniz
         run: |
@@ -57,9 +54,9 @@ jobs:
             fi
           fi
 
-      - name: List Build Outputs
+      - name: List Build Output
         run: |
-          echo "Listing build outputs:"
+          echo "Listing build output:"
           ls -la build/${{ matrix.platform }}_${{ matrix.arch }}
 
       - name: Upload Build Artifacts
@@ -76,24 +73,15 @@ jobs:
       - name: Download Build Artifacts
         uses: actions/download-artifact@v3
         with:
-          name: Miniz-Build-${{ matrix.platform }}-${{ matrix.arch }}
-      
+          path: release
+
       - name: Create GitHub Release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: "v1.0.${{ github.run_number }}"
-          release_name: "Miniz Build Release"
+          tag_name: miniz-build-${{ github.run_number }}
+          release_name: Miniz Build Release ${{ github.run_number }}
           draft: false
           prerelease: false
-
-      - name: Upload Release Assets
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: build/${{ matrix.platform }}_${{ matrix.arch }}
-          asset_name: Miniz-${{ matrix.platform }}-${{ matrix.arch }}.zip
-          asset_content_type: application/zip
+          files: release/**/*
