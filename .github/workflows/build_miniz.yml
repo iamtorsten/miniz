@@ -76,6 +76,11 @@ jobs:
             x86_64-w64-mingw32-gcc -shared -o build\${{ matrix.platform }}_${{ matrix.arch }}\miniz.dll miniz.c miniz_tdef.c miniz_tinfl.c -DBUILD_DLL
           }
 
+      - name: Verify Files and List
+        run: |
+          echo "Listing build output:"
+          ls -la build/${{ matrix.platform }}_${{ matrix.arch }}
+
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v3
         with:
