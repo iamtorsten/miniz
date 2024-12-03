@@ -19,7 +19,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          if [ "${{ matrix.arch }}" = "arm64" ]; then
+          if [[ "${{ matrix.arch }}" == "arm64" ]]; then
             sudo apt-get install -y gcc-aarch64-linux-gnu
           else
             sudo apt-get install -y gcc
@@ -29,7 +29,7 @@ jobs:
         if: runner.os == 'macOS'
         shell: bash
         run: |
-          if [ "${{ matrix.arch }}" = "arm64" ]; then
+          if [[ "${{ matrix.arch }}" == "arm64" ]]; then
             echo "Setting up for Apple Silicon (ARM64)"
           else
             echo "Setting up for Intel (x86_64)"
@@ -51,14 +51,14 @@ jobs:
         shell: bash
         run: |
           mkdir -p build/${{ matrix.platform }}_${{ matrix.arch }}
-          if [ "${{ matrix.platform }}" = "linux" ]; then
-            if [ "${{ matrix.arch }}" = "arm64" ]; then
+          if [[ "${{ matrix.platform }}" == "linux" ]]; then
+            if [[ "${{ matrix.arch }}" == "arm64" ]]; then
               aarch64-linux-gnu-gcc -shared -o build/${{ matrix.platform }}_${{ matrix.arch }}/miniz.so miniz.c miniz_tdef.c miniz_tinfl.c -DBUILD_DLL
             else
               gcc -shared -o build/${{ matrix.platform }}_${{ matrix.arch }}/miniz.so miniz.c miniz_tdef.c miniz_tinfl.c -DBUILD_DLL
             fi
-          elif [ "${{ matrix.platform }}" = "macos" ]; then
-            if [ "${{ matrix.arch }}" = "arm64" ]; then
+          elif [[ "${{ matrix.platform }}" == "macos" ]]; then
+            if [[ "${{ matrix.arch }}" == "arm64" ]]; then
               clang -target arm64-apple-macos -shared -o build/${{ matrix.platform }}_${{ matrix.arch }}/miniz.dylib miniz.c miniz_tdef.c miniz_tinfl.c -DBUILD_DLL
             else
               clang -target x86_64-apple-macos -shared -o build/${{ matrix.platform }}_${{ matrix.arch }}/miniz.dylib miniz.c miniz_tdef.c miniz_tinfl.c -DBUILD_DLL
@@ -77,13 +77,14 @@ jobs:
           }
 
       - name: Verify Files and List
+        shell: pwsh
         run: |
-          echo "Listing build output:"
-          if [ "${{ runner.os }}" == "Windows" ]; then
+          Write-Output "Listing build output:"
+          if ($env:OS -eq "Windows_NT") {
             dir build\${{ matrix.platform }}_${{ matrix.arch }}
-          else
+          } else {
             ls -l build/${{ matrix.platform }}_${{ matrix.arch }}
-          fi
+          }
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v3
