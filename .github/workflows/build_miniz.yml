@@ -9,30 +9,37 @@ jobs:
       matrix:
         platform: [linux, macos, windows]
         arch: [x86_64, arm64]
-    runs-on: ${{ matrix.platform }}-latest
+    runs-on: ${{ matrix.platform == 'windows' && 'windows-latest' || matrix.platform == 'macos' && 'macos-latest' || 'ubuntu-22.04' }}
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      - name: Setup Build Environment
+      - name: Setup Build Environment (Linux)
+        if: runner.os == 'Linux'
         run: |
-          echo "Setting up environment for ${{ matrix.platform }} ${{ matrix.arch }}"
-          if [[ "${{ matrix.platform }}" == "linux" ]]; then
-            sudo apt-get update
-            if [[ "${{ matrix.arch }}" == "arm64" ]]; then
-              sudo apt-get install -y gcc-aarch64-linux-gnu
-            else
-              sudo apt-get install -y gcc
-            fi
-          elif [[ "${{ matrix.platform }}" == "macos" ]]; then
-            echo "macOS environment setup complete."
-          elif [[ "${{ matrix.platform }}" == "windows" ]]; then
-            choco install mingw
+          echo "Setting up environment for Linux ${{ matrix.arch }}"
+          sudo apt-get update
+          if [[ "${{ matrix.arch }}" == "arm64" ]]; then
+            sudo apt-get install -y gcc-aarch64-linux-gnu
+          else
+            sudo apt-get install -y gcc
           fi
+
+      - name: Setup Build Environment (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          echo "Setting up environment for macOS ${{ matrix.arch }}"
+
+      - name: Setup Build Environment (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          echo "Setting up environment for Windows ${{ matrix.arch }}"
+          choco install mingw
 
       - name: Build Miniz
         run: |
+          echo "Starting build for ${{ matrix.platform }} ${{ matrix.arch }}"
           mkdir -p build/${{ matrix.platform }}_${{ matrix.arch }}
           if [[ "${{ matrix.platform }}" == "linux" ]]; then
             if [[ "${{ matrix.arch }}" == "arm64" ]]; then
@@ -67,7 +74,7 @@ jobs:
 
   release:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Download Build Artifacts
