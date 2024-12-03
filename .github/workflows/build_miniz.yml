@@ -34,19 +34,8 @@ jobs:
       - name: Setup Build Environment (Windows)
         if: runner.os == 'Windows'
         run: |
-          echo "Setting up environment for Windows ${{ matrix.arch }}"
+          Write-Host "Setting up environment for Windows ${{ matrix.arch }}"
           choco install mingw
-
-      - name: Build Miniz (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          Write-Host "Starting build for Windows ${{ matrix.arch }}"
-          mkdir -Force -Path build\windows_${{ matrix.arch }}
-          if ($env:matrix_arch -eq "arm64") {
-            & aarch64-w64-mingw32-gcc -shared -o build\windows_${{ matrix.arch }}\miniz.dll miniz.c miniz_tdef.c miniz_tinfl.c -DBUILD_DLL
-          } else {
-            & x86_64-w64-mingw32-gcc -shared -o build\windows_${{ matrix.arch }}\miniz.dll miniz.c miniz_tdef.c miniz_tinfl.c -DBUILD_DLL
-          }
 
       - name: Build Miniz (Linux and macOS)
         if: runner.os != 'Windows'
@@ -67,14 +56,24 @@ jobs:
             fi
           fi
 
+      - name: Build Miniz (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          Write-Host "Starting build for Windows ${{ matrix.arch }}"
+          mkdir build\windows_${{ matrix.arch }}
+          if ($env:matrix_arch -eq "arm64") {
+            & aarch64-w64-mingw32-gcc -shared -o build\windows_${{ matrix.arch }}\miniz.dll miniz.c miniz_tdef.c miniz_tinfl.c -DBUILD_DLL
+          } else {
+            & x86_64-w64-mingw32-gcc -shared -o build\windows_${{ matrix.arch }}\miniz.dll miniz.c miniz_tdef.c miniz_tinfl.c -DBUILD_DLL
+          }
+
       - name: List Build Output
         run: |
           echo "Listing build output for ${{ matrix.platform }} ${{ matrix.arch }}"
-          if [[ "${{ matrix.platform }}" == "windows" ]]; then
-            Get-ChildItem -Path build\windows_${{ matrix.arch }} -Recurse
-          else
-            ls -la build/${{ matrix.platform }}_${{ matrix.arch }}
-          fi
+          if: runner.os == 'Windows'
+          run: Get-ChildItem -Path build\windows_${{ matrix.arch }} -Recurse
+          if: runner.os != 'Windows'
+          run: ls -la build/${{ matrix.platform }}_${{ matrix.arch }}
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v3
