@@ -38,11 +38,21 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           choco install mingw
-          if [[ "${{ matrix.arch }}" == "arm64" ]]; then
+          if ($env:matrix_arch -eq "arm64") {
             echo "Using ARM64 MinGW cross-compiler"
-          else
+          } else {
             echo "Using x86_64 MinGW compiler"
-          fi
+          }
+          
+      - name: Build Miniz (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          mkdir build\${{ matrix.platform }}_${{ matrix.arch }}
+          if ($env:matrix_arch -eq "arm64") {
+            aarch64-w64-mingw32-gcc -shared -o build\${{ matrix.platform }}_${{ matrix.arch }}\miniz.dll miniz.c miniz_tdef.c miniz_tinfl.c -DBUILD_DLL
+          } else {
+            x86_64-w64-mingw32-gcc -shared -o build\${{ matrix.platform }}_${{ matrix.arch }}\miniz.dll miniz.c miniz_tdef.c miniz_tinfl.c -DBUILD_DLL
+          }
 
       - name: Build Miniz
         run: |
