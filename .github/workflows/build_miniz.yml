@@ -1,7 +1,7 @@
 name: Manual Build for Miniz
 
 on:
-  workflow_dispatch: # Nur manuell ausführbar
+  workflow_dispatch:  # Nur manuell ausführbar
 
 jobs:
   build:
@@ -15,40 +15,26 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      - name: Setup Build Environment (Linux)
-        if: matrix.platform == 'linux'
+      - name: Setup Build Environment
         run: |
-          sudo apt-get update
-          if [[ "${{ matrix.arch }}" == "arm64" ]]; then
-            sudo apt-get install -y gcc-aarch64-linux-gnu
-          else
-            sudo apt-get install -y gcc
-          fi
+          if [[ "${{ matrix.platform }}" == "linux" ]]; then
+            sudo apt-get update
+            if [[ "${{ matrix.arch }}" == "arm64" ]]; then
+              sudo apt-get install -y gcc-aarch64-linux-gnu
+            else
+              sudo apt-get install -y gcc
+            fi
+          elif [[ "${{ matrix.platform }}" == "macos" ]]; then
+            echo "Setting up for macOS"
+          elif [[ "${{ matrix.platform }}" == "windows" ]]; then
+            choco install mingw
+            if [[ "${{ matrix.arch }}" == "arm64" ]]; then
+              echo "Using ARM64 MinGW cross-compiler"
+            else
+              echo "Using x86_64 MinGW compiler"
+            fi
 
-      - name: Setup Build Environment (macOS)
-        if: runner.os == 'macOS'
-        shell: bash
-        run: |
-          if [[ "${{ matrix.arch }}" == "arm64" ]]; then
-            echo "Setting up for Apple Silicon (ARM64)"
-          else
-            echo "Setting up for Intel (x86_64)"
-          fi
-
-      - name: Setup Build Environment (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          choco install mingw -y
-          if ($env:matrix_arch -eq "arm64") {
-            Write-Output "Using ARM64 MinGW cross-compiler"
-          } else {
-            Write-Output "Using x86_64 MinGW compiler"
-          }
-
-      - name: Build Miniz (Linux and macOS)
-        if: runner.os != 'Windows'
-        shell: bash
+      - name: Build Miniz
         run: |
           mkdir -p build/${{ matrix.platform }}_${{ matrix.arch }}
           if [[ "${{ matrix.platform }}" == "linux" ]]; then
@@ -63,31 +49,51 @@ jobs:
             else
               clang -target x86_64-apple-macos -shared -o build/${{ matrix.platform }}_${{ matrix.arch }}/miniz.dylib miniz.c miniz_tdef.c miniz_tinfl.c -DBUILD_DLL
             fi
+          elif [[ "${{ matrix.platform }}" == "windows" ]]; then
+            if [[ "${{ matrix.arch }}" == "arm64" ]]; then
+              aarch64-w64-mingw32-gcc -shared -o build/${{ matrix.platform }}_${{ matrix.arch }}/miniz.dll miniz.c miniz_tdef.c miniz_tinfl.c -DBUILD_DLL
+            else
+              x86_64-w64-mingw32-gcc -shared -o build/${{ matrix.platform }}_${{ matrix.arch }}/miniz.dll miniz.c miniz_tdef.c miniz_tinfl.c -DBUILD_DLL
+            fi
           fi
 
-      - name: Build Miniz (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
+      - name: List Build Outputs
         run: |
-          mkdir build\${{ matrix.platform }}_${{ matrix.arch }}
-          if ($env:matrix_arch -eq "arm64") {
-            aarch64-w64-mingw32-gcc -shared -o build\${{ matrix.platform }}_${{ matrix.arch }}\miniz.dll miniz.c miniz_tdef.c miniz_tinfl.c -DBUILD_DLL
-          } else {
-            x86_64-w64-mingw32-gcc -shared -o build\${{ matrix.platform }}_${{ matrix.arch }}\miniz.dll miniz.c miniz_tdef.c miniz_tinfl.c -DBUILD_DLL
-          }
-
-      - name: Verify Files and List
-        shell: pwsh
-        run: |
-          Write-Output "Listing build output:"
-          if ($env:OS -eq "Windows_NT") {
-            dir build\${{ matrix.platform }}_${{ matrix.arch }}
-          } else {
-            ls -l build/${{ matrix.platform }}_${{ matrix.arch }}
-          }
+          echo "Listing build outputs:"
+          ls -la build/${{ matrix.platform }}_${{ matrix.arch }}
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v3
         with:
           name: Miniz-Build-${{ matrix.platform }}-${{ matrix.arch }}
           path: build/${{ matrix.platform }}_${{ matrix.arch }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download Build Artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: Miniz-Build-${{ matrix.platform }}-${{ matrix.arch }}
+      
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: "v1.0.${{ github.run_number }}"
+          release_name: "Miniz Build Release"
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Assets
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: build/${{ matrix.platform }}_${{ matrix.arch }}
+          asset_name: Miniz-${{ matrix.platform }}-${{ matrix.arch }}.zip
+          asset_content_type: application/zip
