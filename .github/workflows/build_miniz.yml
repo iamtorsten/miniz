@@ -79,7 +79,11 @@ jobs:
       - name: Verify Files and List
         run: |
           echo "Listing build output:"
-          ls -la build/${{ matrix.platform }}_${{ matrix.arch }}
+          if [ "${{ runner.os }}" == "Windows" ]; then
+            dir build\${{ matrix.platform }}_${{ matrix.arch }}
+          else
+            ls -l build/${{ matrix.platform }}_${{ matrix.arch }}
+          fi
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v3
