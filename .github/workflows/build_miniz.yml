@@ -27,6 +27,7 @@ jobs:
 
       - name: Setup Build Environment (macOS)
         if: matrix.platform == 'macos'
+        shell: bash
         run: |
           if [ "${{ matrix.arch }}" = "arm64" ]; then
             echo "Setting up for Apple Silicon (ARM64)"
@@ -46,6 +47,7 @@ jobs:
           )
 
       - name: Build Miniz
+        shell: bash
         run: |
           mkdir -p build/${{ matrix.platform }}_${{ matrix.arch }}
           if [ "${{ matrix.platform }}" = "linux" ]; then
