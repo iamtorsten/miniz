@@ -1,0 +1,40 @@
+name: Windows Build for Miniz
+
+on:
+  workflow_dispatch: # Manuelle Ausführung
+
+jobs:
+  build:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        arch: [x86_64, arm64]
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Install MinGW
+        run: |
+          echo "Installing MinGW for Windows"
+          choco install -y mingw
+
+      - name: Build Miniz
+        run: |
+          echo "Starting build for Windows ${{ matrix.arch }}"
+          mkdir -p build\windows_${{ matrix.arch }}
+          if ($env:matrix_arch -eq "arm64") {
+            $mingwPath = "C:\tools\mingw64\bin"
+            $env:PATH += ";$mingwPath"
+            aarch64-w64-mingw32-gcc -shared -o build\windows_${{ matrix.arch }}\miniz.dll miniz.c -DBUILD_DLL
+          } else {
+            $mingwPath = "C:\tools\mingw64\bin"
+            $env:PATH += ";$mingwPath"
+            x86_64-w64-mingw32-gcc -shared -o build\windows_${{ matrix.arch }}\miniz.dll miniz.c -DBUILD_DLL
+          }
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: Miniz-Build-Windows-${{ matrix.arch }}
+          path: build\windows_${{ matrix.arch }}

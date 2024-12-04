@@ -1,0 +1,40 @@
+name: macOS Build for Miniz
+
+on:
+  workflow_dispatch: # Manuelle Ausführung
+
+jobs:
+  build:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        arch: [x86_64, arm64]
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Setup Build Environment
+        run: |
+          echo "Setting up environment for macOS ${{ matrix.arch }}"
+          if [[ "${{ matrix.arch }}" == "arm64" ]]; then
+            echo "Configuring for Apple Silicon (ARM64)"
+          else
+            echo "Configuring for Intel (x86_64)"
+          fi
+
+      - name: Build Miniz
+        run: |
+          echo "Starting build for macOS ${{ matrix.arch }}"
+          mkdir -p build/macos_${{ matrix.arch }}
+          if [[ "${{ matrix.arch }}" == "arm64" ]]; then
+            clang -target arm64-apple-macos -shared -o build/macos_${{ matrix.arch }}/miniz.dylib miniz.c -DBUILD_DLL
+          else
+            clang -target x86_64-apple-macos -shared -o build/macos_${{ matrix.arch }}/miniz.dylib miniz.c -DBUILD_DLL
+          fi
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: Miniz-Build-macOS-${{ matrix.arch }}
+          path: build/macos_${{ matrix.arch }}

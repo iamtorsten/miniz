@@ -1,0 +1,39 @@
+name: Linux Build for Miniz
+
+on:
+  workflow_dispatch: # Nur manuell ausführbar
+
+jobs:
+  build:
+    name: Build Miniz on Linux
+    runs-on: ubuntu-22.04 # Standard-Linux-Runner für GitHub Actions
+
+    strategy:
+      matrix:
+        arch: [x86_64, arm64] # Unterstützte Architekturen
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Setup Build Environment
+        run: |
+          echo "Richte Build-Umgebung ein..."
+          sudo apt-get update
+          sudo apt-get install -y gcc gcc-aarch64-linux-gnu build-essential
+
+      - name: Build Miniz
+        run: |
+          echo "Starte Build für Architektur: ${{ matrix.arch }}..."
+          mkdir -p build/linux_${{ matrix.arch }}
+          if [[ "${{ matrix.arch }}" == "arm64" ]]; then
+            aarch64-linux-gnu-gcc -fPIC -shared -o build/linux_${{ matrix.arch }}/miniz.so miniz.c -DBUILD_DLL
+          else
+            gcc -fPIC -shared -o build/linux_${{ matrix.arch }}/miniz.so miniz.c -DBUILD_DLL
+          fi
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: Miniz-Build-Linux-${{ matrix.arch }}
+          path: build/linux_${{ matrix.arch }}
